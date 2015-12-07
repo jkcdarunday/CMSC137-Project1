@@ -33,6 +33,7 @@ private:
     QList<QByteArray> window;
     QQueue<QByteArray> toSend;
     QTimer *timer;
+    bool needToAck;
 };
 
 #endif // KSERVER_H

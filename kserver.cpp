@@ -39,13 +39,15 @@ void KServer::sendData(const QByteArray &data)
     }
 
     if(state == 2){
-//        qDebug() << currentSeqNum << baseSeqNum << currentSeqNum-baseSeqNum ;
+        qDebug() << "S:" << currentSeqNum << baseSeqNum << currentSeqNum-baseSeqNum ;
         if(currentSeqNum-baseSeqNum < toSend.size()){
+            qDebug("S->C: ACK+DAT %d :: S:%d A:%d", needToAck?1:0, header->seqNum(),header->ackNum());
             QByteArray frame = toSend[currentSeqNum-baseSeqNum];
             this->write(header->getByteArray() + frame);
             this->timer->start(this->timeout);
-        } else {
-//            qDebug("server: Sending done.");
+        } else if(needToAck){
+            qDebug("S->C: ACK :: %d", header->seqNum());
+            this->write(header->getByteArray());
         }
     }
 }
@@ -94,37 +96,27 @@ void KServer::readPendingDatagrams()
                 baseSeqNum = header->seqNum();
 
                 this->connectToHost(sender, senderPort);
-
-                sendData();
+                if(!this->hasPendingDatagrams())
+                    sendData();
             }
         } else if(state==2 && !header->syn() && header->ack()){
-//            qDebug("lel");
             QByteArray data =  datagram.mid(12);
             header->incrementSeqNum();
-
             header->swapNums();
 
+            if(data.size() > 0){
+                qDebug() << "\e[1;31mS: ###### Received " << data << "\033[0m";
+                needToAck = true;
+            }
+
             if(header->seqNum() > currentSeqNum){
+                qDebug("S:21");
                 currentSeqNum = header->seqNum();
-                seqNumIncreased = true;
                 this->timer->stop();
             }
 
-            if(data.length()>0){
-                qDebug() << "server: Got Data" << data;
-                int rnum = rand()%20;
-                if(1 || rnum < 18){
-                    if(currentSeqNum-baseSeqNum >= toSend.size())
-                        this->writeDatagram(header->getByteArray(), sender, senderPort);
-                    else
-                        sendData();
-                }
-            }
-        }
-        if(state==2 && seqNumIncreased){
-            // Window moves
-            // Send data with new Window
             sendData();
+            needToAck = false;
         }
     }
 }

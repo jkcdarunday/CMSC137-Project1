@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     KClient *c = new KClient();
     c->connectTo(QHostAddress::LocalHost, 6666);
 
-//    c->sendData(QString("Hello World 2012-10053 Allahu Akbar 2012-10053").toUtf8());
+    c->sendData(QString("Hello World 2012-10053 Allahu Akbar 2012-10053").toUtf8());
 
     s->sendData(QString("1342132413241234132412341234234xxxx").toUtf8());
 

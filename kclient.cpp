@@ -49,12 +49,15 @@ void KClient::sendData(const QByteArray &data)
     }
 
     if(state == 2){
+        qDebug() << "C:" << currentSeqNum << baseSeqNum << currentSeqNum-baseSeqNum ;
         if(currentSeqNum-baseSeqNum < toSend.size()){
             QByteArray frame = toSend[currentSeqNum-baseSeqNum];
+            qDebug("C->S: ACK+DAT %d :: S:%d A:%d", needToAck?1:0, header->seqNum(),header->ackNum());
             this->write(header->getByteArray() + frame);
             this->timer->start(this->timeout);
-        } else {
-//            qDebug("client: Sending done.");
+        } else if(needToAck){
+            qDebug("C->S: ACK :: %d", header->seqNum());
+            this->write(header->getByteArray());
         }
     }
 }
@@ -63,6 +66,7 @@ void KClient::readPendingDatagrams()
 {
     bool seqNumIncreased = false; // whether the window moves or not
     while (this->hasPendingDatagrams()) {
+        needToAck = false;
         QByteArray datagram;
         datagram.resize(this->pendingDatagramSize());
         QHostAddress sender;
@@ -92,33 +96,28 @@ void KClient::readPendingDatagrams()
             this->writeDatagram(header->getByteArray(), sender, senderPort);
 
             state++;
-
-            sendData();
+            if(!this->hasPendingDatagrams())
+                sendData();
         } else if(state==2 && !header->syn() && header->ack()){
             QByteArray data =  datagram.mid(12);
             header->incrementSeqNum();
-
             header->swapNums();
+//            if(rand()%4==0){qDebug() << "\e[1;34mC: ###### FAIL Received " << data << "\033[0m";continue;}
+
+
+            if(data.size() > 0){
+                qDebug() << "\e[1;34mC: ###### Received " << data << "\033[0m";
+                needToAck = true;
+            }
 
             if(header->seqNum() > currentSeqNum){
+                qDebug("C:21");
                 currentSeqNum = header->seqNum();
-                seqNumIncreased = true;
                 this->timer->stop();
             }
 
-
-            if(data.length()>0){
-                qDebug() << "client: Got Data" << data;
-                int rnum = rand()%20;
-                if(rnum < 18)
-                    this->writeDatagram(header->getByteArray(), sender, senderPort);
-            }
-        }
-
-        if(state==2 && seqNumIncreased){
-            // Window moves
-            // Send data with new Window
             sendData();
+            needToAck = false;
         }
     }
 }
