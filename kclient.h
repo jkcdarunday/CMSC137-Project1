@@ -8,6 +8,7 @@
 #include <kheader.h>
 #include <cstdlib>
 #include <ctime>
+#include <iostream>
 
 
 
@@ -17,6 +18,7 @@ public:
     KClient();
     void connectTo(const QHostAddress &address, const quint16 &port);
     void sendData(const QByteArray &data = QByteArray());
+    void disconnect();
 public slots:
     void readPendingDatagrams();
     void resendData();
@@ -34,6 +36,8 @@ private:
     QQueue<QByteArray> toSend;
     QTimer *timer;
     bool needToAck;
+
+    quint16 lastReceived;
 
     QHostAddress peer;
     quint16 peerPort;

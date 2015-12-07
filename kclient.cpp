@@ -17,10 +17,12 @@ KClient::KClient()
     connect(timer, &QTimer::timeout,
             this, &KClient::resendData);
     this->currentSeqNum = 90;
-    this->timeout = 4000;
+    this->timeout = 4000+20;
     this->state=0;
     header = new KHeader();
     srand(time(NULL));
+    this->timeout += rand()%8;
+    this->needToAck=false;
 }
 
 
@@ -49,15 +51,23 @@ void KClient::sendData(const QByteArray &data)
     }
 
     if(state == 2){
-        qDebug() << "C:" << currentSeqNum << baseSeqNum << currentSeqNum-baseSeqNum ;
-        if(currentSeqNum-baseSeqNum < toSend.size()){
+        //        qDebug() << "C:" << currentSeqNum << baseSeqNum << currentSeqNum-baseSeqNum ;
+        if(currentSeqNum-baseSeqNum < toSend.size() && !timer->isActive()){
             QByteArray frame = toSend[currentSeqNum-baseSeqNum];
-            qDebug("C->S: ACK+DAT %d :: S:%d A:%d", needToAck?1:0, header->seqNum(),header->ackNum());
+            //            qDebug("C->S: ACK+DAT %d :: S:%d A:%d", needToAck?1:0, header->seqNum(),header->ackNum());
             this->writeDatagram(header->getByteArray() + frame,peer,peerPort);
             this->timer->start(this->timeout);
         } else if(needToAck){
-            qDebug("C->S: ACK :: %d", header->seqNum());
+            //            qDebug("C->S: ACK :: S: %d A:%d", header->seqNum(),header->ackNum());
             this->writeDatagram(header->getByteArray(),peer,peerPort);
+        } else if(!timer->isActive()){
+            std::string msg;
+            std::cout << "Enter message:";
+            std::getline(std::cin, msg);
+
+            if(msg.length()==0) this->disconnect();
+
+            sendData(QString::fromStdString(msg).toUtf8());
         }
     }
 }
@@ -77,12 +87,6 @@ void KClient::readPendingDatagrams()
 
         header->readFrom(datagram);
 
-        QByteArray d = datagram;
-        QString resHex = "Client : ";
-        for (int i = 0; i < d.size(); i++)
-            resHex.append( QString::number((quint8)d.at(i), 16).rightJustified(2, '0') + " " );
-        //        qDebug() << resHex;
-
         if(state==1 && header->syn() && header->ack()){
             qDebug() << "Client: SYN+ACK Received";
 
@@ -99,34 +103,81 @@ void KClient::readPendingDatagrams()
             peerPort=senderPort;
 
             state++;
-            if(!this->hasPendingDatagrams())
-                sendData();
+            //            if(!this->hasPendingDatagrams())
+            sendData();
         } else if(state==2 && !header->syn() && header->ack()){
             QByteArray data =  datagram.mid(12);
-            header->incrementSeqNum();
+            bool drop = false;
+            if(rand()%4 != 0){
+            }else{
+
+                if(data.size()>0) qDebug() << "\e[1;36mC: ###### DROPPED" << data << "\e[m";
+                drop=true;
+            }
             header->swapNums();
-//            if(rand()%4==0){qDebug() << "\e[1;34mC: ###### FAIL Received " << data << "\033[0m";continue;}
 
 
             if(data.size() > 0){
-                qDebug() << "\e[1;34mC: ###### Received " << data << "\033[0m";
                 needToAck = true;
+                if(!drop){
+                    qDebug() << "\e[1;34mC: ###### Received " << data << "\033[0m";
+                    header->incrementAckNum();
+                    currentSeqNum=header->seqNum();
+                }
             }
 
-            if(header->seqNum() > currentSeqNum){
-                qDebug("C:21");
+            if(header->seqNum() == currentSeqNum+1){
+                //                qDebug("C:21");
                 currentSeqNum = header->seqNum();
                 this->timer->stop();
             }
 
             sendData();
             needToAck = false;
+        } else if(state==2 && header->fin()){
+            qDebug("FIN Received. Sending ACK and then FIN");
+            header->setAck(true);
+            header->setSyn(false);
+            this->writeDatagram(header->getByteArray(), sender, senderPort);
+            header->setAck(false);
+            header->setFin(true);
+            this->writeDatagram(header->getByteArray(), sender, senderPort);
+            state=5;
+        } else if(state==3 && header->ack()){
+            qDebug("ACK Received. Waiting for FIN");
+            state = 4;
+        } else if(state==4 && header->fin()){
+            qDebug("Fin Received. Sending ACK");
+            header->setAck(true);
+            header->setSyn(false);
+            header->setFin(false);
+            this->writeDatagram(header->getByteArray(), sender, senderPort);
+            state = 9;
+        } else if(state==5 && header->ack()){
+            qDebug("ACK Received.");
+            state = 9;
+        }
+
+        if(state == 9){
+            qDebug("Connection terminated");
         }
     }
 }
 
 void KClient::resendData()
 {
-    qDebug("Client: Sending previous data failed. Resending..");
+    qDebug("\e[1;34mClient: Sending previous data failed. Resending..\e[0m");
+    this->timer->stop();
     this->sendData();
+    this->flush();
+}
+
+void KClient::disconnect(){
+    qDebug() << "Now disconnecting...";
+    qDebug() << "Sending FIN";
+    header->setAck(false);
+    header->setSyn(false);
+    header->setFin(true);
+    this->writeDatagram(header->getByteArray(), peer, peerPort);
+    state=3;
 }

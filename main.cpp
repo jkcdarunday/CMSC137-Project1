@@ -2,39 +2,62 @@
 #include "kheader.h"
 #include "kserver.h"
 
+#include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QDebug>
+#include <iostream>
 
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
 
-    KServer *s = new KServer();
-    s->listen(6666);
+    QCommandLineParser parser;
+    parser.setApplicationDescription(" A Data Flow Control Layer Over UDP that Mimics the Transfer Control Protocol (TCP)");
+    parser.addHelpOption();
+    parser.addPositionalArgument("port", QCoreApplication::translate("main", "Port number"));
 
-    KClient *c = new KClient();
-    c->connectTo(QHostAddress::LocalHost, 6666);
+    // Option for listen
+    QCommandLineOption listenOption("l", QCoreApplication::translate("main", "Specify that program shall listen rather than connect"));
+    parser.addOption(listenOption);
 
-    c->sendData(QString("Hello World 2012-10053 Allahu Akbar 2012-10053").toUtf8());
+    // Drop percent
+    QCommandLineOption dropRateOption(QStringList() << "d" << "drop",QCoreApplication::translate("main", "Packet drop rate. 0=0%, 1=25%, 2=50%, 3=75%"), "rate");
+    parser.addOption(dropRateOption);
 
-    s->sendData(QString("1342132413241234132412341234234xxxx").toUtf8());
+    parser.process(a);
 
-//    KHeader *s = new KHeader();
-//    s->setSyn(true);
-//    s->setAck(false);
-//    QByteArray d = s->getByteArray();
+    quint16 port = 9999;
 
-//    KHeader *y = new KHeader(d);
+    if(parser.positionalArguments().length()==1){
+        bool ok;
+        quint16 pn = parser.positionalArguments().at(0).toUShort(&ok);
+        if(ok) port=pn;
+    }
 
-//    d=y->getByteArray();
+    if(parser.isSet("l")){
+        KServer *s = new KServer();
 
-//    qDebug() << d.size();
+        if(parser.isSet("drop")){
+            QString dr = parser.value(dropRateOption);
+            bool ok;
+            quint16 drr = dr.toUShort(&ok);
+            if(ok&& drr<4){
+                qDebug() << "Drop rate set to" << drr;
+                s->setDrop(drr);
+            }
+        }
 
-//    QString resHex = "";
-//    for (int i = 0; i < d.size(); i++)
-//      resHex.append( QString::number((quint8)d.at(i), 16).rightJustified(2, '0') + " " );
+        s->listen(port);
+    } else {
+        KClient *c = new KClient();
+        c->connectTo(QHostAddress::LocalHost, port);
 
-//    qDebug() << resHex;
+        std::string msg;
+        std::cout << "Enter message:";
+        std::getline(std::cin, msg);
+
+        c->sendData(QString::fromStdString(msg).toUtf8());
+    }
 
     return a.exec();
 }

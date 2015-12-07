@@ -17,6 +17,8 @@ public:
     KServer();
     bool listen(quint16 port);
     void sendData(const QByteArray &data = QByteArray());
+    void disconnect();
+    void setDrop(quint16 drop);
 public slots:
     void readPendingDatagrams();
     void resendData();
@@ -37,6 +39,8 @@ private:
 
     QHostAddress peer;
     quint16 peerPort;
+
+    quint16 drop;
 };
 
 #endif // KSERVER_H
