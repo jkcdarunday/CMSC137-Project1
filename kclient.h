@@ -35,6 +35,8 @@ private:
     QTimer *timer;
     bool needToAck;
 
+    QHostAddress peer;
+    quint16 peerPort;
 };
 
 #endif // KCLIENT_H

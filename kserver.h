@@ -34,6 +34,9 @@ private:
     QQueue<QByteArray> toSend;
     QTimer *timer;
     bool needToAck;
+
+    QHostAddress peer;
+    quint16 peerPort;
 };
 
 #endif // KSERVER_H

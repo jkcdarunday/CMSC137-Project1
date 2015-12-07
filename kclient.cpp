@@ -53,11 +53,11 @@ void KClient::sendData(const QByteArray &data)
         if(currentSeqNum-baseSeqNum < toSend.size()){
             QByteArray frame = toSend[currentSeqNum-baseSeqNum];
             qDebug("C->S: ACK+DAT %d :: S:%d A:%d", needToAck?1:0, header->seqNum(),header->ackNum());
-            this->write(header->getByteArray() + frame);
+            this->writeDatagram(header->getByteArray() + frame,peer,peerPort);
             this->timer->start(this->timeout);
         } else if(needToAck){
             qDebug("C->S: ACK :: %d", header->seqNum());
-            this->write(header->getByteArray());
+            this->writeDatagram(header->getByteArray(),peer,peerPort);
         }
     }
 }
@@ -94,6 +94,9 @@ void KClient::readPendingDatagrams()
             currentSeqNum = header->seqNum();
             baseSeqNum = header->seqNum();
             this->writeDatagram(header->getByteArray(), sender, senderPort);
+
+            peer=sender;
+            peerPort=senderPort;
 
             state++;
             if(!this->hasPendingDatagrams())
