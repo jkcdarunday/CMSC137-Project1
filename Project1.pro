@@ -1,8 +1,6 @@
 QT += core network
 QT -= gui
 
-CONFIG += c++11
-
 TARGET = Project1
 CONFIG += console
 CONFIG -= app_bundle
