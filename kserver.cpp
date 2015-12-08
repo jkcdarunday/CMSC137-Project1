@@ -96,10 +96,9 @@ void KServer::readPendingDatagrams()
                 currentSeqNum = header->seqNum();
                 baseSeqNum = header->seqNum();
 
-                this->connectToHost(sender, senderPort);
                 if(!this->hasPendingDatagrams())
                     sendData();
-                qDebug("Server: Connected");
+                qDebug("Server: Fully Connected");
             }
         } else if(state==2 && !header->syn() && header->ack()){
             QByteArray data =  datagram.mid(12);

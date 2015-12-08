@@ -31,14 +31,12 @@ void KClient::connectTo(const QHostAddress &address, const quint16 &port)
     header->setSeqNum(currentSeqNum);
     header->setSyn(true);
     header->setAck(false);
-    this->connectToHost(address, port);
+
     this->state=0;
     qDebug() << "Client: Connecting to " << address << ":" << port;
-    if(this->waitForConnected(timeout)){
-        qDebug() << "Client: Connected";
-        this->write(header->getByteArray());
-        state++;
-    }
+    qDebug() << "Client: Pseudo-Connected";
+    this->writeDatagram(header->getByteArray(), address,port);
+    state++;
 
 }
 
@@ -103,6 +101,7 @@ void KClient::readPendingDatagrams()
             peerPort=senderPort;
 
             state++;
+            qDebug() << "Client: Fully connected.";
             //            if(!this->hasPendingDatagrams())
             sendData();
         } else if(state==2 && !header->syn() && header->ack()){

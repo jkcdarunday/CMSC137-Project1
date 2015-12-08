@@ -5,6 +5,7 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QDebug>
+#include <QThread>
 #include <iostream>
 
 int main(int argc, char *argv[])
@@ -34,9 +35,11 @@ int main(int argc, char *argv[])
         if(ok) port=pn;
     }
 
+    QThread *e = new QThread();
     if(parser.isSet("l")){
         KServer *s = new KServer();
 
+        s->moveToThread(e);
         if(parser.isSet("drop")){
             QString dr = parser.value(dropRateOption);
             bool ok;
@@ -51,6 +54,8 @@ int main(int argc, char *argv[])
     } else {
         KClient *c = new KClient();
         c->connectTo(QHostAddress::LocalHost, port);
+
+       c->moveToThread(e);
 
         std::string msg;
         std::cout << "Enter message:";
